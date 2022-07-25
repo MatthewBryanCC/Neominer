@@ -4,7 +4,8 @@
   "description": "A simple 2D space game for controlling automated drones.",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "start": "node index.js"
   },
   "author": "Matthew Bryan",
   "license": "ISC",

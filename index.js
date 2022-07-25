@@ -19,7 +19,8 @@ function ServerIntialize() {
     });
     app.use('/client', express.static(__dirname + '/client'));
 
-    serv.listen(8000);
+    var port = process.env.PORT;
+    serv.listen(port);
     GAME_SERVER = new Server(app, serv);
 
     console.log("Server is running");
