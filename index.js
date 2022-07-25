@@ -1,4 +1,4 @@
-const Player = require('./js/Player.js');
+const {Player, AIEnemy} = require('./js/Player.js');
 const CelestialBodiesFactory = require('./js/CelestialBodiesFactory.js');
 const GameObjectFactory = require('./js/GameObjectFactory.js');
 
@@ -8,6 +8,7 @@ var GM = null;
 var GAME_SERVER = null;
 var SOCKET_LIST = {};
 var PLAYER_LIST = {};
+var AI_LIST = {};
 
 function ServerIntialize() {
     var express = require('express');
@@ -19,7 +20,7 @@ function ServerIntialize() {
     });
     app.use('/client', express.static(__dirname + '/client'));
 
-    var port = process.env.PORT;
+    var port = process.env.PORT || 8000;
     serv.listen(port);
     GAME_SERVER = new Server(app, serv);
 
@@ -53,6 +54,7 @@ class Server {
             gameManager.SendInitialPlayerConnection(socket, newPlayer);
             gameManager.SendInitialCelestialObjects(socket);
             gameManager.SendInitialExistingPlayers(socket);
+            gameManager.SendInitialDrones(socket);
 
             GAME_SERVER.BroadcastConnection(newPlayer);
             
@@ -78,7 +80,16 @@ class Server {
                 */ 
                 var player = PLAYER_LIST[socket.id];
                 if(data.Creation == "Drone") {
-                    player.CreateDrone(data.Type);
+                    var newDrone = player.CreateDrone(data.Type, GM);
+                    if(newDrone != null) {
+                        GM.Drones[newDrone.Id] = newDrone; //Add new drone to drone list.
+                        var droneData =  Object.assign(Object.create(Object.getPrototypeOf(newDrone)), newDrone);
+                        droneData.gm = null;
+                        GAME_SERVER.BroadcastData("DroneCreated", droneData);
+                    } else {
+                        //failed to make drone
+                        console.log("[Drones]: Failed to make drone. Not enough metal.");
+                    }
                 }
             });
 
@@ -121,6 +132,7 @@ class GameManager {
             Star: {},
             Asteroid: {}
         };
+        this.Drones = {};
         this.ClaimObjects = {};
     }
     InitializeWorld() {
@@ -128,6 +140,8 @@ class GameManager {
         this.AddCelestialObject(CelestialBodiesFactory.CreateStar());
         //Create Asteroids
         this.CreateAsteroids();
+        //Create AI
+        this.CreateAI();
         //Set server loop
         setInterval(this.ServerLoop, (100/12)) //~120 tick runtime.
     }
@@ -135,7 +149,10 @@ class GameManager {
     AddCelestialObject(obj) {
         this.CelestialObjects[obj.Type][obj.Id] = obj;
     }
-
+    CreateAI() {
+        var newAI = new AIEnemy(CreateUUID(), this);
+        AI_LIST[newAI.Id] = newAI;
+    }
     CreateAsteroids() {
         for(var i=0;i<this.MAX_ASTEROIDS;i++) {
             this.AddCelestialObject(CelestialBodiesFactory.CreateAsteroid());
@@ -153,7 +170,7 @@ class GameManager {
         socket.emit("InitialPlayerConnection", player);
     }
     SendInitialExistingPlayers(socket) {
-        var data = JSON.parse(JSON.stringify(PLAYER_LIST));
+        var data = JSON.parse(JSON.stringify(PLAYER_LIST)); //Copy data
         delete data[socket.id]; //Ignore self.
         //Delete all server only data.
         for(var i in data) {
@@ -161,9 +178,24 @@ class GameManager {
         }
         socket.emit("InitialExistingPlayers", data);
     }
+    SendInitialDrones(socket) {
+        //Hacky copying to not send game manager data.
+        var droneClone = Object.assign(Object.create(Object.getPrototypeOf(this.Drones)), this.Drones);
+        for(var id in droneClone) {
+            var thisDroneClone = Object.assign(Object.create(Object.getPrototypeOf(droneClone[id])), droneClone[id]);
+            droneClone[id] = thisDroneClone;
+            //Delete unnecessary properties.
+            thisDroneClone.gm = null;
+        }
+        socket.emit("InitialDrones", droneClone);
+    }
 
     ServerLoop() {
-        GM.UpdatePlayers();
+        var playerPositionInfo = GM.UpdatePlayers();
+        //GM.UpdateAI();
+        var dronePositionInfo = GM.UpdateDrones();
+        var movementUpdates = {player: playerPositionInfo, drone: dronePositionInfo};
+        GM.SendMovementUpdates(movementUpdates);
         GM.CheckClaimObjects();
     }
 
@@ -182,10 +214,29 @@ class GameManager {
             this.Server.BroadcastData("AsteroidUpdates", updateData);
         }
     }
+    UpdateAI() {
+        for(var id in AI_LIST) {
+            var thisAI = AI_LIST[id];
+            thisAI.Think();
+        }
+    }
 
     UpdatePlayers() {
         this.GainPlayerResources(); //TODO: Change this to occur on a timed basis.
-        this.MovePlayers();
+        var positionInfo = this.MovePlayers();
+        return positionInfo;
+    }
+
+    UpdateDrones() {
+        var positionInfo = {};
+        for(var id in this.Drones) {
+            var drone = this.Drones[id];
+            var moved = drone.Think();
+            if(moved) {
+                positionInfo[id] = {x: drone.Position.x, y: drone.Position.y};
+            }
+        }
+        return positionInfo;
     }
     
     GainPlayerResources() {
@@ -205,6 +256,11 @@ class GameManager {
             }
             positionInfo[player.Id] = {x: player.Position.x, y: player.Position.y};
         }
+        return positionInfo;
+        
+    }
+
+    SendMovementUpdates(positionInfo) {
         for(var socketId in SOCKET_LIST) {
             var socket = SOCKET_LIST[socketId];
             socket.emit("PositionUpdates", positionInfo);

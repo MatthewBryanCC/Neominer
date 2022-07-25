@@ -1,5 +1,6 @@
 import { Player, PlayerRep } from './Player.mjs';
 import { CelestialBodiesFactory } from './CelestialBodiesFactory.mjs';
+import { GameObjectFactory } from './GameObjectFactory.mjs';
 var app = null;
 var LocalPlayer = null;
 
@@ -9,6 +10,7 @@ class App {
         this.WorldCelestialBodies = {};
         this.Graphics = new Graphics(this);
         this.ALL_PLAYERS = {};
+        this.ALL_DRONES = {};
         this.ClaimObjects = {};
         this.cSocket = io();
         this.BindSocketEvents();
@@ -24,11 +26,13 @@ class App {
         this.cSocket.on("InitialCelestialObjects", this.InitialBodiesLoad);
         this.cSocket.on("InitialPlayerConnection", this.InitialCharacterLoad);
         this.cSocket.on("InitialExistingPlayers", this.InitialExistingPlayersLoad)
-        this.cSocket.on("PositionUpdates", this.UpdatePlayerPositions);
+        this.cSocket.on("InitialDrones", this.InitialDronesLoad);
+        this.cSocket.on("PositionUpdates", this.UpdatePositions);
         this.cSocket.on("AsteroidUpdates", this.UpdateAsteroids);
         this.cSocket.on("PlayerConnection", this.CreateNewPlayer);
         this.cSocket.on("PlayerDisconnection", this.DeletePlayer);
         this.cSocket.on("AsteroidClaim", this.AsteroidClaimed)
+        this.cSocket.on("DroneCreated", this.DroneCreated);
     }
     InitialBodiesLoad(data) {
         console.log("[Client Debug (Socket)]: Initial Celestial Body data received!");
@@ -48,16 +52,35 @@ class App {
         console.log("[Client Debug (Socket)]: Initial existing player data received!");
         app.ConvertPlayerReps(data);
     }
-    UpdatePlayerPositions(data) {
-        for(var id in data) {
+    InitialDronesLoad(data) {
+        console.log("[Client Debug (Socket)]: Initial drone data loaded!")
+        console.log("Drone Data: " + JSON.stringify(data));
+        app.ConvertDrones(data);
+    }
+    DroneCreated(newDrone) {
+        var goFactory = new GameObjectFactory(app);
+        app.ALL_DRONES[newDrone.Id] = goFactory.ConvertNewDrone(newDrone);
+    }
+    UpdatePositions(data) {
+        //Update players
+        for(var id in data.player) {
             if(app.ALL_PLAYERS[id] === undefined && id != LocalPlayer.Id) {continue;}
             if(id == LocalPlayer.Id) {
-                var playerData = data[id];
+                var playerData = data.player[id];
                 LocalPlayer.Position.x = playerData.x;
                 LocalPlayer.Position.y = playerData.y;
                 continue;
             }
-            app.ALL_PLAYERS[id].UpdatePosition(data[id])
+            app.ALL_PLAYERS[id].UpdatePosition(data.player[id])
+        }
+        //Update drones
+        for(var id in data.drone) {
+            if(app.ALL_DRONES[id] != null) {
+                var newPosition = data.drone[id];
+                app.ALL_DRONES[id].Position = newPosition;
+            } else {
+                console.log("[Drone Updates]: Drone does not exist locally? Shouldn't happen.")
+            }
         }
         return;
     }
@@ -109,6 +132,10 @@ class App {
             allPlayers[newPlayer.Id] = newPlayer;
         }
         app.ALL_PLAYERS = allPlayers;
+    }
+    ConvertDrones(droneData) {
+        var goFactory = new GameObjectFactory(this);
+        app.ALL_DRONES = goFactory.ConvertDrones(droneData);
     }
     GameLoop() {
 
@@ -178,6 +205,7 @@ class Graphics {
         this.DrawWorld();
         this.DrawSelf();
         this.DrawPlayers();
+        this.DrawDrones();
     }
 
     DrawWorld() {
@@ -210,6 +238,12 @@ class Graphics {
         for(var i in this.app.ALL_PLAYERS) {
             var player = this.app.ALL_PLAYERS[i];
             player.Draw(this);
+        }
+    }
+    DrawDrones() {
+        for(var i in this.app.ALL_DRONES) {
+            var drone = this.app.ALL_DRONES[i];
+            drone.Draw(this, LocalPlayer.Id);
         }
     }
 }
