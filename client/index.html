@@ -1,0 +1,21 @@
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>NeoMiner</title>
+        <link href="/client/css/master.css" rel="stylesheet"/>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js" ></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script defer type="module" src="/client/js/app.mjs"></script>
+    </head>
+    <body>
+        <canvas id="gameCanvas" width="2560" height="1440"></canvas>
+    </body>
+    <script defer type="text/javascript">
+        $('#gameCanvas').prop({
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+    </script>
+</html>

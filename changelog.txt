@@ -1,0 +1,62 @@
+FINAL ACTIONS {
+    
+}
+
+TODO
+========
+    SERVER:
+        - Astroids can be contested.
+        - Added Player Drones
+        - Players can now create drones.
+    CLIENT:
+        - Asteroids are visibly depleted upon collision (mining)
+        - Player drones are now visible in game.
+        - Enemy drones are now visible in game.
+
+Harvesting and Depleting - 23/07/2022
+======================================
+    SERVER:
+        - Asteroids being claimed are no longer effected by other players.
+        - Added player inventory.
+        - Asteroids are now harvestable.
+    CLIENT:
+        - Your asteroids are now shown in blue, and other players' asteroids are green.
+        - Asteroid claim circle no longer disappears.
+
+Asteroid Work - 22/07/2022
+===========================
+    SERVER:
+        - Asteroids are now claimable.
+    CLIENT:
+        - Asteroids can be seen being claimed (WIP).
+
+World Building / Player Connection - 21/07/2022
+===============================================
+    SERVER:
+        - Players can now connect and disconnect safely.
+        - Arc collision added to CelestialBodies
+        - Created Asteroids. 
+        - Drone code started.
+    CLIENT:
+        - All players can now see Asteroids.
+
+World Creation - 20/07/2022
+============================
+    SERVER:
+        - All celestial bodies will be sent upon connection.
+        - Other player data is now broadcast to clients.
+    CLIENT:
+        - Added other player representation functionality.
+        - Other players can now be seen within the game world. (Blue = you, Green = Other) 
+
+Initial Creation - 19/07/2022
+==============================
+    - Set up server / client environments.
+
+    SERVER:
+    - Set up socket connections and basic rules.
+    - Created Stars.
+
+    CLIENT:
+    - Created HTML5 canvas with framework classes (App)
+    - Game now renders stars.

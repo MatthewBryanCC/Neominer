@@ -1,0 +1,15 @@
+{
+  "name": "neominer",
+  "version": "1.0.0",
+  "description": "A simple 2D space game for controlling automated drones.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "Matthew Bryan",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1",
+    "socket.io": "^4.5.1"
+  }
+}
