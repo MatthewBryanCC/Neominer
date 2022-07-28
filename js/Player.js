@@ -91,8 +91,10 @@ class Player {
         }
     }
 
-    ClaimObject(type, obj) {
+    ClaimObject(type, obj, gm) {
         this.ClaimedObjects[type][obj.Id] = obj;
+        gm.ClaimedObjects[obj.Id] = obj;
+        console.log("Object claimed!");
     }
     AssessResourceClaims() {
         //Claim resources from asteroids.

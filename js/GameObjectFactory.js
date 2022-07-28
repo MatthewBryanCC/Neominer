@@ -38,6 +38,7 @@ class PlayerDrone {
         this.vy = 0;
         this.SearchRadius = 300;
         this.gm = gm;
+        this.Collisions = {};
         this.WanderLocation = {x: 0, y: 0};
     }
 
@@ -45,6 +46,23 @@ class PlayerDrone {
         this.Position.x += this.vx;
         this.Position.y += this.vy;
         return(this.vx != 0 || this.vy != 0);
+    }
+
+    AssessCollisions(celestialBodies, gm) {
+        for(var type in celestialBodies) {
+            for(var i in celestialBodies[type]) {
+                var obj = celestialBodies[type][i];
+                if(Helper.CircleCollision(this, obj)) {
+                    obj.Collide(gm, this);
+                    this.Collisions[obj.Id] = obj;
+                } else {
+                    if(obj.Id in this.Collisions) { 
+                        obj.EndCollide(gm, this);
+                        delete this.Collisions[obj.Id];
+                    }
+                }
+            }
+        }
     }
 }
 

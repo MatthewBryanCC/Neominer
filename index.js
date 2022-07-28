@@ -133,7 +133,12 @@ class GameManager {
             Asteroid: {}
         };
         this.Drones = {};
-        this.ClaimObjects = {};
+        this.ClaimingObjects = {};
+        this.ClaimedObjects = {};
+        this.LastMiningTick = 0;
+        this.LastResourceTick = 0;
+        this.GameTime = 0;
+        this.StartTime = 0;
     }
     InitializeWorld() {
         //Create Star
@@ -143,6 +148,7 @@ class GameManager {
         //Create AI
         this.CreateAI();
         //Set server loop
+        this.StartTime = new Date().getTime();
         setInterval(this.ServerLoop, (100/12)) //~120 tick runtime.
     }
 
@@ -191,20 +197,23 @@ class GameManager {
     }
 
     ServerLoop() {
+        var timeNow = new Date().getTime();
+        GM.GameTime = (timeNow - GM.StartTime)/1000;
         var playerPositionInfo = GM.UpdatePlayers();
         //GM.UpdateAI();
         var dronePositionInfo = GM.UpdateDrones();
         var movementUpdates = {player: playerPositionInfo, drone: dronePositionInfo};
         GM.SendMovementUpdates(movementUpdates);
-        GM.CheckClaimObjects();
+        GM.CheckClaimingObjects();
+        GM.CheckClaimedObjects();
     }
 
     /* Loop Functions */
 
-    CheckClaimObjects() {
+    CheckClaimingObjects() {
         var updateData = {};
-        for(var i in this.ClaimObjects) {
-            var claimObj = this.ClaimObjects[i];
+        for(var i in this.ClaimingObjects) {
+            var claimObj = this.ClaimingObjects[i];
             claimObj.AssessClaim(this);
             var newData = { ClaimValue: claimObj.ClaimValue, OwnerId: claimObj.Claimer.Id };
             updateData[claimObj.Id] = newData;
@@ -214,6 +223,19 @@ class GameManager {
             this.Server.BroadcastData("AsteroidUpdates", updateData);
         }
     }
+    CheckClaimedObjects() {
+        if(this.TimeSinceLastResourceTick() >= 1) {
+            for(var id in this.ClaimedObjects) {
+                var claimedObj = this.ClaimedObjects[id];
+                if(claimedObj.CanBeHarvested()) {
+                    var owner = this.GetPlayerById(claimedObj.Owner.Id);
+                    claimedObj.ClaimResources(owner);
+                }
+            }
+            this.LastResourceTick = this.GameTime;
+        }
+    }
+
     UpdateAI() {
         for(var id in AI_LIST) {
             var thisAI = AI_LIST[id];
@@ -222,7 +244,6 @@ class GameManager {
     }
 
     UpdatePlayers() {
-        this.GainPlayerResources(); //TODO: Change this to occur on a timed basis.
         var positionInfo = this.MovePlayers();
         return positionInfo;
     }
@@ -230,21 +251,18 @@ class GameManager {
     UpdateDrones() {
         var positionInfo = {};
         for(var id in this.Drones) {
+            //Update movement.
             var drone = this.Drones[id];
             var moved = drone.Think();
             if(moved) {
                 positionInfo[id] = {x: drone.Position.x, y: drone.Position.y};
+                drone.AssessCollisions(this.CelestialObjects, this);
             }
+            
         }
         return positionInfo;
     }
     
-    GainPlayerResources() {
-        for(var i in PLAYER_LIST) {
-            var player = PLAYER_LIST[i];
-            player.AssessResourceClaims();
-        }
-    }
 
     MovePlayers() {
         var positionInfo = {};
@@ -265,6 +283,18 @@ class GameManager {
             var socket = SOCKET_LIST[socketId];
             socket.emit("PositionUpdates", positionInfo);
         }
+    }
+    TimeSinceLastResourceTick() {
+        return (this.GameTime - this.LastResourceTick);
+    }
+    GetPlayerById(id) { 
+        for(var sockId in PLAYER_LIST) {
+            var thisPly = PLAYER_LIST[sockId];
+            if(thisPly.Id == id) {
+                return thisPly;
+            }
+        }
+        return null;
     }
 }
 

@@ -39,24 +39,51 @@ class CelestialBody {
         this.Position = position;
         this.Size = size;
         this.Claimable = false;
+        this.ClaimValue = 0;
+        this.Claimer = null;
+        this.Claimed = false;
+        this.Collisions = {};
+        this.BeingClaimed = false;
+        this.Contested = false;
     }
     Collide(gm, collider) {
         console.log("[Celestial Object]: Collision detected. Object type '" + this.Type + "'");
         if(this.Claimable && !this.Claimed && !this.BeingClaimed) {
             this.BeingClaimed = true;
-            this.Claimer = collider;
-            gm.ClaimObjects[this.Id] = this;
+            if(collider.Type == "Mining_Drone") {
+                this.Claimer = gm.GetPlayerById(collider.OwnerId);
+            } else {
+                this.Claimer = collider;
+            }
+            gm.ClaimingObjects[this.Id] = this;
             console.log("Clamin!");
         }
+        this.Collisions[collider.Id] = collider;
     }
     EndCollide(gm, collider) {
         console.log("[Celestial Object]: Collision ended. Object type '" + this.Type + "'");
         if(this.Claimable && this.Claimer == collider) {
+            delete gm.ClaimingObjects[this.Id];
             this.BeingClaimed = false;
             this.Claimer = null;
             this.ClaimValue = 0;
-            delete gm.ClaimObjects[this.Id];
         }
+        delete this.Collisions[collider.Id];
+    }
+    HasFriendlyCollision() {
+        for(var id in this.Collisions) {
+            console.log(id);
+            var collider = this.Collisions[id];
+            console.log(collider.Type);
+            if(collider.Type == "Mining_Drone") {
+                var ownerId = collider.OwnerId;
+                if(ownerId == this.Owner.Id) return true;
+            } else {
+                if(collider.Id == this.Owner.Id) return true;
+            }
+            continue;
+        }
+        return false;
     }
 }
 
@@ -70,12 +97,9 @@ class Asteroid extends CelestialBody {
     constructor(id, type, position, size) {
         super(id, type, position, size);
         this.Claimable = true;
-        this.ClaimValue = 0;
-        this.BeingClaimed = false;
-        this.Claimer = null;
-        this.Claimed = false;
         this.Owner = null;
-        this.AsteroidType = "Metal"
+        this.AsteroidType = "Metal";
+        this.MaxResource = 1000;
     }
     AssessClaim(gm) {
         this.ClaimValue += 0.002; //Roughly 6 seconds serverside.
@@ -83,8 +107,8 @@ class Asteroid extends CelestialBody {
             this.ClaimValue = 1;
             this.Claimed = true;
             this.Owner = this.Claimer;
-            delete gm.ClaimObjects[this.Id];
-            this.Owner.ClaimObject("Asteroid", this);
+            delete gm.ClaimingObjects[this.Id];
+            this.Owner.ClaimObject("Asteroid", this, gm);
             //Broadcast claim
             var data = {
                 AsteroidId: this.Id,
@@ -93,8 +117,15 @@ class Asteroid extends CelestialBody {
             gm.Server.BroadcastData("AsteroidClaim", data);
         }
     }
+    CanBeHarvested() {
+        return (!this.Contested && this.HasFriendlyCollision());
+    }
 
-    ClaimResources() {
-        return [this.AsteroidType, 0.01]; //Metal
+
+
+    ClaimResources(owner) {
+        this.MaxResource -= 1;
+        owner.Inventory[this.AsteroidType] += 1;
+        console.log("Resource claimed!");
     }
 }

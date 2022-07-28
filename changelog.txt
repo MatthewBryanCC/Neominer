@@ -1,15 +1,28 @@
 FINAL ACTIONS {
-    
+    TODO:
+        - Mining Drones will not try to contest claimed asteroids.
+        - Mining Drones now have a visible shield.
+        - Mining Drones will now move to new asteroids once depleted.
+
+        - Asteroids can now be contested.
+        - Asteroids are visibly depleted upon being mined.
 }
 
-TODO
-========
+Drone & Asteroid Updates - 29/07/2022
+=====================================
     SERVER:
-        - Astroids can be contested.
-        - Added Player Drones
-        - Players can now create drones.
+        - Mining Drones can now claim asteroids for the creating player.
+        - Resources will now only be collected every second.
+        - A friendly mining drone or the player now must be on the asteroid in order to mine.
     CLIENT:
-        - Asteroids are visibly depleted upon collision (mining)
+
+Drones and NPCs - 26/07/2022
+==========================
+    SERVER:
+        - Added Player Drones with basic logic (mining only).
+        - Players can now create mining drones.
+        - Added basic NPC enemy code.
+    CLIENT:
         - Player drones are now visible in game.
         - Enemy drones are now visible in game.
 
