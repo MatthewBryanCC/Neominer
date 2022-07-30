@@ -1,6 +1,7 @@
 import { Player, PlayerRep } from './Player.mjs';
 import { CelestialBodiesFactory } from './CelestialBodiesFactory.mjs';
 import { GameObjectFactory } from './GameObjectFactory.mjs';
+
 var app = null;
 var LocalPlayer = null;
 
@@ -18,22 +19,28 @@ class App {
     }
 
     Initialize() {
-
         //Start game loop
     }
+
     /* Start Socket Events */
+
     BindSocketEvents() {
         this.cSocket.on("InitialCelestialObjects", this.InitialBodiesLoad);
         this.cSocket.on("InitialPlayerConnection", this.InitialCharacterLoad);
         this.cSocket.on("InitialExistingPlayers", this.InitialExistingPlayersLoad)
         this.cSocket.on("InitialDrones", this.InitialDronesLoad);
         this.cSocket.on("PositionUpdates", this.UpdatePositions);
-        this.cSocket.on("AsteroidUpdates", this.UpdateAsteroids);
+        this.cSocket.on("AsteroidClaimUpdates", this.UpdateAsteroidClaims);
+        this.cSocket.on("AsteroidResourceUpdate", this.UpdateAsteroidResources);
         this.cSocket.on("PlayerConnection", this.CreateNewPlayer);
         this.cSocket.on("PlayerDisconnection", this.DeletePlayer);
         this.cSocket.on("AsteroidClaim", this.AsteroidClaimed)
         this.cSocket.on("DroneCreated", this.DroneCreated);
+        this.cSocket.on("DeletePlayerDrones", this.DeletePlayerDrones);
+        this.cSocket.on("AsteroidDepleted", this.AsteroidDepleted);
+        this.cSocket.on("ClaimDeletion", this.DeleteClaimObject);
     }
+
     InitialBodiesLoad(data) {
         console.log("[Client Debug (Socket)]: Initial Celestial Body data received!");
         app.ConvertBodies(data);
@@ -42,25 +49,51 @@ class App {
         app.Active = true;
         app.GameLoop();
     }
+
     InitialCharacterLoad(data) {
         console.log("[Client Debug (Socket)]: Initial client data received!");
         LocalPlayer = new Player(data);
         LocalPlayer.cSocket = app.cSocket;
         app.Active = true;
     }
+
     InitialExistingPlayersLoad(data) {
         console.log("[Client Debug (Socket)]: Initial existing player data received!");
         app.ConvertPlayerReps(data);
     }
+
     InitialDronesLoad(data) {
         console.log("[Client Debug (Socket)]: Initial drone data loaded!")
         console.log("Drone Data: " + JSON.stringify(data));
         app.ConvertDrones(data);
     }
+
     DroneCreated(newDrone) {
         var goFactory = new GameObjectFactory(app);
         app.ALL_DRONES[newDrone.Id] = goFactory.ConvertNewDrone(newDrone);
     }
+
+    DeletePlayerDrones(droneArray) {
+        for(var i in droneArray) {
+            var droneId = droneArray[i];
+            delete app.ALL_DRONES[droneId];
+        }
+    }
+
+    DeleteClaimObject(asteroidId) {
+        console.log("Claim Objects: " + JSON.stringify(app.ClaimObjects));
+        console.log("Claim dletion: " + asteroidId);
+        if(app.ClaimObjects[asteroidId]) {
+            delete app.ClaimObjects[asteroidId]; 
+            console.log("Asteroid deleted from claims!");
+        }
+    }
+
+    AsteroidDepleted(asteroidId) {
+        delete app.WorldCelestialBodies.Asteroid[asteroidId];
+        console.log("Asteroid deleted via depletion!");
+    }
+
     UpdatePositions(data) {
         //Update players
         for(var id in data.player) {
@@ -84,12 +117,14 @@ class App {
         }
         return;
     }
-    UpdateAsteroids(data) {
+
+    UpdateAsteroidClaims(data) {
         for(var id in data) {
             var claimData = data[id];
-            if(!(id in app.ClaimObjects)) {
+            if(!(id in app.ClaimObjects)) { //PROBLEM
                 app.ClaimObjects[id] = true;
             }
+            console.log("Checking a claim!");
             app.WorldCelestialBodies.Asteroid[id].ClaimValue = claimData.ClaimValue;
             app.WorldCelestialBodies.Asteroid[id].OwnerId = claimData.OwnerId;
         }
@@ -102,19 +137,36 @@ class App {
             }
         }
     }
+
+    UpdateAsteroidResources(data) {
+        for(var id in data) {
+            var updateData = data[id];
+            if(id in app.WorldCelestialBodies.Asteroid) {
+                var asteroid = app.WorldCelestialBodies.Asteroid[id];
+                asteroid.UpdateResourceValue(updateData.newResourceValue, updateData.maxResourceValue);
+            }
+        }
+    }
+    
     AsteroidClaimed(data) {
         var thisAsteroid = app.WorldCelestialBodies.Asteroid[data.AsteroidId];
         thisAsteroid.OwnerId = data.OwnerId;
         thisAsteroid.Claimed = true;
+        delete app.ClaimObjects[data.AsteroidId];
+        console.log("Deleted object: " + app.ClaimObjects);
     }
+
     CreateNewPlayer(data) {
         console.log("[Client Debug (Socket)]: New Player connection detected! Data: " + JSON.stringify(data));
         app.ALL_PLAYERS[data.Id] = new PlayerRep(data.Id, data.Position, 30);
     }
+
     DeletePlayer(playerId) {
         delete app.ALL_PLAYERS[playerId];
     }
+
     /* End Socket Events */
+
     ConvertBodies(data) {
         var bodyFactory = new CelestialBodiesFactory(this);
         //Convert basic data into client objects.
@@ -124,6 +176,7 @@ class App {
         };
         return true;
     }
+
     ConvertPlayerReps(data) {
         var allPlayers = {};
         for(var i in data) {
@@ -133,10 +186,12 @@ class App {
         }
         app.ALL_PLAYERS = allPlayers;
     }
+
     ConvertDrones(droneData) {
         var goFactory = new GameObjectFactory(this);
         app.ALL_DRONES = goFactory.ConvertDrones(droneData);
     }
+
     GameLoop() {
 
         app.Graphics.DrawLoop();
@@ -150,37 +205,51 @@ class App {
     }
 
     OnPlayerKeyDown(event) {
-        if(app.Active == false) { return; } //Ignore input if no data received yet.
+        if(app.Active == false) { return; } 
+
+        //Ignore input if no data received yet.
+
         if(event.keyCode == 68) { //d
             LocalPlayer.Move("Right", true);
         }
+
         if(event.keyCode == 83) { //s
             LocalPlayer.Move("Down", true)
         }
+
         if(event.keyCode == 65) {// a
             LocalPlayer.Move("Left", true);
         }
+
         if(event.keyCode == 87) {//w
             LocalPlayer.Move("Up", true);
         }
+
         if(event.keyCode == 77) {//m
             LocalPlayer.CreateMiningDrone();
         }
     }
     OnPlayerKeyUp(event) {
-        if(app.Active == false) { return; } //Ignore input if no data received yet.
+        if(app.Active == false) { return; } 
+        
+        //Ignore input if no data received yet.
+
         if(event.keyCode == 68) { //d
             LocalPlayer.Move("Right", false);
         }
+
         if(event.keyCode == 83) { //s
             LocalPlayer.Move("Down", false)
         }
+
         if(event.keyCode == 65) {// a
             LocalPlayer.Move("Left", false);
         }
+
         if(event.keyCode == 87) {//w
             LocalPlayer.Move("Up", false);
         }
+
         if(event.keyCode == 77) {//m
             LocalPlayer.holdingM = false;
         }
@@ -195,6 +264,7 @@ class Graphics {
         this.worldOffsetY = 0;
 
         console.log("Sizing: " + this.ScrW + " and " + this.ScrH);
+
         this.app = app;
         this.canvas = document.getElementById("gameCanvas");
         this.ctx = this.canvas.getContext("2d");
@@ -212,15 +282,19 @@ class Graphics {
         this.DrawStars();
         this.DrawAsteroids();
     }
+
     DrawStars() {
         if(this.app.WorldCelestialBodies.Star == {}) { return; }
+
         for(var key in this.app.WorldCelestialBodies.Star) {
             var star = this.app.WorldCelestialBodies.Star[key];
             star.Draw(this);
         }
     }
+
     DrawAsteroids() {
         if(this.app.WorldCelestialBodies.Asteroid == {}) {return;}
+
         for(var key in this.app.WorldCelestialBodies.Asteroid) {
             var asteroid = this.app.WorldCelestialBodies.Asteroid[key];
             asteroid.Draw(this, LocalPlayer.Id);
@@ -240,6 +314,7 @@ class Graphics {
             player.Draw(this);
         }
     }
+
     DrawDrones() {
         for(var i in this.app.ALL_DRONES) {
             var drone = this.app.ALL_DRONES[i];

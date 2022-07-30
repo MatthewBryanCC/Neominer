@@ -92,6 +92,7 @@ class MiningDrone extends PlayerDrone {
     }
     StartIdle() {
         console.log("[Drone]: Now idling");
+        this.CurrentTarget = null;
         this.Action = ACTION.IDLE;
     }
     ThinkIdle() {
@@ -114,6 +115,10 @@ class MiningDrone extends PlayerDrone {
             var asteroid = this.gm.CelestialObjects.Asteroid[id];
             var dist = Helper.DistanceBetween(this, asteroid);
             if(dist <= this.SearchRadius) {
+                //If already being mined or being claimed.
+                if(asteroid.IsBeingHarvested() || asteroid.IsBeingClaimed()) {
+                    continue; //Ignore if being mined.
+                }
                 if(closestAsteroid == null) {
                     closestAsteroid = asteroid;
                     closestDist = dist;
@@ -164,6 +169,11 @@ class MiningDrone extends PlayerDrone {
         console.log("[Drone]: Pathing to target!");
     }
     ThinkPathing() {
+        if(this.CurrentTarget.IsBeingClaimed() && !this.CurrentTarget.ClaimingByDroneId(this.Id)) { //Cancel pathing if now being claimed.
+            console.log("IDLE START !");
+            this.StartIdle();
+            return;
+        }
         var distanceFromTarget = Helper.DistanceBetween(this, this.CurrentTarget);
         if(distanceFromTarget > 2) {
             //Path
@@ -172,9 +182,16 @@ class MiningDrone extends PlayerDrone {
         } else {
             //At target
             console.log("[Drone]: At target! Yay!");
-            this.Action = ACTION.MINING;
+            this.StartMining();
             return false;
         }
+    }
+    StartMining() {
+        console.log("[Drone]: Starting mining!");
+        this.Action = ACTION.MINING;
+    }
+    ThinkMining() {
+        console.log("drone mining!");
     }
 }
 

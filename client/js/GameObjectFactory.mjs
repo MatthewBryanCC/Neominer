@@ -60,7 +60,6 @@ class Mining_Drone extends Drone {
         
         g.ctx.beginPath();
         g.ctx.fillStyle = "green";
-        console.log(this.OwnerId);
         if(localPlayerId == this.OwnerId) {
             g.ctx.fillStyle = "blue";
         }

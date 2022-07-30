@@ -5,8 +5,15 @@ FINAL ACTIONS {
         - Mining Drones will now move to new asteroids once depleted.
 
         - Asteroids can now be contested.
-        - Asteroids are visibly depleted upon being mined.
 }
+Drone Update - Part II - 31/07/2022
+====================================
+    SERVER:
+        - Drones will move to next asteroid when current target is depleted.
+    CLIENT:
+        - Asteroids are now properly deleted client-side.
+        - Fixed client-side claim objects.
+
 
 Drone & Asteroid Updates - 29/07/2022
 =====================================
@@ -15,6 +22,7 @@ Drone & Asteroid Updates - 29/07/2022
         - Resources will now only be collected every second.
         - A friendly mining drone or the player now must be on the asteroid in order to mine.
     CLIENT:
+        - Asteroids are visibly depleted upon being mined.
 
 Drones and NPCs - 26/07/2022
 ==========================

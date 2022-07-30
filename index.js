@@ -52,15 +52,23 @@ class Server {
             
             console.log("Player connected! ID: " + newUUID);
             gameManager.SendInitialPlayerConnection(socket, newPlayer);
+            //console.log("Sent player connection!");
             gameManager.SendInitialCelestialObjects(socket);
+            //console.log("Sent initial celestial objects!");
             gameManager.SendInitialExistingPlayers(socket);
+            //console.log("Sent existing players!");
             gameManager.SendInitialDrones(socket);
-
+            //console.log("Sent initial drones!");
             GAME_SERVER.BroadcastConnection(newPlayer);
-            
+            //console.log("Broadcasted connection!");
             socket.on('disconnect', function() {
-                var playerId = PLAYER_LIST[socket.id].Id;
+                var player = PLAYER_LIST[socket.id];
+                var playerId = player.Id;
                 console.log("Player disconnected! ID: " + playerId);
+                //Unset asteroid claims.
+                GM.UnclaimAsteroids(playerId);
+                var drones = GM.DeletePlayerDrones(playerId);
+                GAME_SERVER.BroadcastData("DeletePlayerDrones", drones);
                 delete PLAYER_LIST[socket.id];
                 delete SOCKET_LIST[socket.id];
                 GAME_SERVER.BroadcastDisconnection(playerId);
@@ -152,6 +160,27 @@ class GameManager {
         setInterval(this.ServerLoop, (100/12)) //~120 tick runtime.
     }
 
+    DeletePlayerDrones(playerId) {
+        var deletedDrones = [];
+        for(var i in this.Drones) {
+            var drone = this.Drones[i];
+            if(drone.OwnerId == playerId) {
+                deletedDrones.push(drone.Id);
+                delete this.Drones[i];
+            }
+        }
+        return deletedDrones;
+    }
+    UnclaimAsteroids(playerId) {
+        for(var i in this.ClaimedObjects) {
+            var obj = this.ClaimedObjects[i];
+            if(obj.Owner.Id == playerId) {
+                obj.Unclaim();
+                delete this.ClaimedObjects[i];
+            }
+        }
+    }
+
     AddCelestialObject(obj) {
         this.CelestialObjects[obj.Type][obj.Id] = obj;
     }
@@ -214,23 +243,37 @@ class GameManager {
         var updateData = {};
         for(var i in this.ClaimingObjects) {
             var claimObj = this.ClaimingObjects[i];
-            claimObj.AssessClaim(this);
+            var claimed = claimObj.AssessClaim(this);
             var newData = { ClaimValue: claimObj.ClaimValue, OwnerId: claimObj.Claimer.Id };
-            updateData[claimObj.Id] = newData;
+            if(claimed) {
+                var deleteData = claimObj.Id;
+                this.Server.BroadcastData("ClaimDeletion", deleteData);
+                delete this.ClaimingObjects[i];
+                continue;
+            } else {
+                updateData[claimObj.Id] = newData;
+            }
         }
         //Broadcast Object Claims
         if(updateData != {}) {
-            this.Server.BroadcastData("AsteroidUpdates", updateData);
+            this.Server.BroadcastData("AsteroidClaimUpdates", updateData);
         }
     }
+    
     CheckClaimedObjects() {
-        if(this.TimeSinceLastResourceTick() >= 1) {
+        if(this.TimeSinceLastResourceTick() >= .1) {
+            var asteroidResourceUpdates = {};
             for(var id in this.ClaimedObjects) {
                 var claimedObj = this.ClaimedObjects[id];
                 if(claimedObj.CanBeHarvested()) {
                     var owner = this.GetPlayerById(claimedObj.Owner.Id);
-                    claimedObj.ClaimResources(owner);
+                    var [newCurrent, max] = claimedObj.ClaimResources(owner, this);
+                    var newUpdate = {newResourceValue: newCurrent, maxResourceValue: max};
+                    asteroidResourceUpdates[claimedObj.Id] = newUpdate;
                 }
+            }
+            if(asteroidResourceUpdates != {}) {
+                this.Server.BroadcastData("AsteroidResourceUpdate", asteroidResourceUpdates);
             }
             this.LastResourceTick = this.GameTime;
         }
@@ -278,6 +321,8 @@ class GameManager {
         
     }
 
+    /* Helper Functions - fuck you james */
+
     SendMovementUpdates(positionInfo) {
         for(var socketId in SOCKET_LIST) {
             var socket = SOCKET_LIST[socketId];
@@ -296,6 +341,7 @@ class GameManager {
         }
         return null;
     }
+    /* End Helpers */
 }
 
 ServerIntialize();

@@ -69,8 +69,15 @@ class Asteroid extends CelestialBody {
         super(ctx, asteroidData.Id, "Asteroid", asteroidData.Position, asteroidData.Size);
         this.CelestialContext = ctx;
         this.ClaimValue = 0;
+        this.CurrentValue = asteroidData.CurrentResource;
+        this.MaxValue = asteroidData.MaxResource;
         this.Claimed = asteroidData.Claimed;
         this.OwnerId = null;
+    }
+
+    UpdateResourceValue(value, max) {
+        this.CurrentValue = value;
+        this.MaxValue = max;
     }
 
     Think() {
@@ -81,7 +88,7 @@ class Asteroid extends CelestialBody {
         var [drawX, drawY] = this.GetDrawPosition(this.Position.x, this.Position.y);
         g.ctx.beginPath();
         g.ctx.fillStyle = "grey";
-        g.ctx.arc(drawX, drawY, this.Size, 0, 2*Math.PI);
+        g.ctx.arc(drawX, drawY, this.Size*(this.CurrentValue/this.MaxValue), 0, 2*Math.PI);
         g.ctx.fill();
         g.ctx.closePath();
 
@@ -95,7 +102,7 @@ class Asteroid extends CelestialBody {
         if(!this.Claimed) {
             g.ctx.arc(drawX, drawY, this.Size*this.ClaimValue, 0, 2*Math.PI);
         } else {
-            g.ctx.arc(drawX, drawY, this.Size, 0, 2*Math.PI);
+            g.ctx.arc(drawX, drawY, this.Size*(this.CurrentValue/this.MaxValue), 0, 2*Math.PI);
         }
             g.ctx.fill();
             g.ctx.closePath();
