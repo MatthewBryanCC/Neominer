@@ -267,6 +267,7 @@ class GameManager {
                 var claimedObj = this.ClaimedObjects[id];
                 if(claimedObj.CanBeHarvested()) {
                     var owner = this.GetPlayerById(claimedObj.Owner.Id);
+                    if(owner == null) { continue; }
                     var [newCurrent, max] = claimedObj.ClaimResources(owner, this);
                     var newUpdate = {newResourceValue: newCurrent, maxResourceValue: max};
                     asteroidResourceUpdates[claimedObj.Id] = newUpdate;
