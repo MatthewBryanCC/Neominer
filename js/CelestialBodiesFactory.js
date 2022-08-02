@@ -108,11 +108,13 @@ class CelestialBody {
         }
         return false;
     }
-    Unclaim() {
+    Unclaim(playerId) {
         this.ClaimValue = 0;
         this.ClaimerId = null;
         this.BeingClaimed = false;
+        this.Claimed = false;
         this.OwnerId = null;
+        delete this.Collisions[playerId];
     }
 }
 

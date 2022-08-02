@@ -39,6 +39,7 @@ class App {
         this.cSocket.on("DeletePlayerDrones", this.DeletePlayerDrones);
         this.cSocket.on("AsteroidDepleted", this.AsteroidDepleted);
         this.cSocket.on("ClaimDeletion", this.DeleteClaimObject);
+        this.cSocket.on("AsteroidUnclaim", this.AsteroidUnclaim);
     }
 
     InitialBodiesLoad(data) {
@@ -154,6 +155,13 @@ class App {
         thisAsteroid.Claimed = true;
         delete app.ClaimObjects[data.AsteroidId];
         console.log("Deleted object: " + app.ClaimObjects);
+    }
+    AsteroidUnclaim(asteroidId) {
+        console.log("UNCLAIM REGISTERED!");
+        var thisAsteroid = app.WorldCelestialBodies.Asteroid[asteroidId];
+        thisAsteroid.OwnerId = null;
+        thisAsteroid.Claimed = false;
+        thisAsteroid.ClaimValue = 0;
     }
 
     CreateNewPlayer(data) {

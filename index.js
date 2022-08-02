@@ -175,14 +175,15 @@ class GameManager {
         for(var i in this.ClaimedObjects) {
             var obj = this.ClaimedObjects[i];
             if(obj.OwnerId == playerId) {
-                obj.Unclaim();
+                obj.Unclaim(playerId);
                 delete this.ClaimedObjects[i];
+                this.Server.BroadcastData("AsteroidUnclaim", obj.Id);
             }
         }
         for(var i in this.ClaimingObjects) {
             var obj = this.ClaimingObjects[i];
             if(obj.ClaimerId == playerId) {
-                obj.Unclaim();
+                obj.Unclaim(playerId);
                 delete this.ClaimingObjects[i];
             }
         }

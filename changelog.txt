@@ -6,6 +6,15 @@ FINAL ACTIONS {
 
         - Asteroids can now be contested.
 }
+
+Server and Collision Update - 03/08/2022
+========================================
+    SERVER:
+        - Server will no longer crash when a player colliding with an asteroid
+          leaves.
+    CLIENT:
+        - Asteroids being claimed by another player will be reset when they leave.
+
 Drone Update - Part II - 31/07/2022
 ====================================
     SERVER:
