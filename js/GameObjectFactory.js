@@ -116,7 +116,7 @@ class MiningDrone extends PlayerDrone {
             var dist = Helper.DistanceBetween(this, asteroid);
             if(dist <= this.SearchRadius) {
                 //If already being mined or being claimed.
-                if(asteroid.IsBeingHarvested() || asteroid.IsBeingClaimed()) {
+                if(asteroid.IsBeingHarvested(this.gm) || asteroid.IsBeingClaimed()) {
                     continue; //Ignore if being mined.
                 }
                 if(closestAsteroid == null) {

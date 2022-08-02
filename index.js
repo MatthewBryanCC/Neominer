@@ -52,15 +52,15 @@ class Server {
             
             console.log("Player connected! ID: " + newUUID);
             gameManager.SendInitialPlayerConnection(socket, newPlayer);
-            //console.log("Sent player connection!");
+            console.log("Sent player connection!");
             gameManager.SendInitialCelestialObjects(socket);
-            //console.log("Sent initial celestial objects!");
+            console.log("Sent initial celestial objects!");
             gameManager.SendInitialExistingPlayers(socket);
-            //console.log("Sent existing players!");
+            console.log("Sent existing players!");
             gameManager.SendInitialDrones(socket);
-            //console.log("Sent initial drones!");
+            console.log("Sent initial drones!");
             GAME_SERVER.BroadcastConnection(newPlayer);
-            //console.log("Broadcasted connection!");
+            console.log("Broadcasted connection!");
             socket.on('disconnect', function() {
                 var player = PLAYER_LIST[socket.id];
                 var playerId = player.Id;
@@ -174,9 +174,16 @@ class GameManager {
     UnclaimAsteroids(playerId) {
         for(var i in this.ClaimedObjects) {
             var obj = this.ClaimedObjects[i];
-            if(obj.Owner.Id == playerId) {
+            if(obj.OwnerId == playerId) {
                 obj.Unclaim();
                 delete this.ClaimedObjects[i];
+            }
+        }
+        for(var i in this.ClaimingObjects) {
+            var obj = this.ClaimingObjects[i];
+            if(obj.ClaimerId == playerId) {
+                obj.Unclaim();
+                delete this.ClaimingObjects[i];
             }
         }
     }
@@ -193,13 +200,13 @@ class GameManager {
             this.AddCelestialObject(CelestialBodiesFactory.CreateAsteroid());
         }
     }
-
     CountCelestialType(type) {
         this.CelestialObjects[type].length;
     }
 
     SendInitialCelestialObjects(socket) {
         socket.emit("InitialCelestialObjects", this.CelestialObjects);
+        console.log("Sent!");
     }
     SendInitialPlayerConnection(socket, player) {
         socket.emit("InitialPlayerConnection", player);
@@ -244,7 +251,7 @@ class GameManager {
         for(var i in this.ClaimingObjects) {
             var claimObj = this.ClaimingObjects[i];
             var claimed = claimObj.AssessClaim(this);
-            var newData = { ClaimValue: claimObj.ClaimValue, OwnerId: claimObj.Claimer.Id };
+            var newData = { ClaimValue: claimObj.ClaimValue, OwnerId: claimObj.ClaimerId };
             if(claimed) {
                 var deleteData = claimObj.Id;
                 this.Server.BroadcastData("ClaimDeletion", deleteData);
@@ -265,8 +272,8 @@ class GameManager {
             var asteroidResourceUpdates = {};
             for(var id in this.ClaimedObjects) {
                 var claimedObj = this.ClaimedObjects[id];
-                if(claimedObj.CanBeHarvested()) {
-                    var owner = this.GetPlayerById(claimedObj.Owner.Id);
+                if(claimedObj.CanBeHarvested(this)) {
+                    var owner = this.GetPlayerById(claimedObj.OwnerId);
                     if(owner == null) { continue; }
                     var [newCurrent, max] = claimedObj.ClaimResources(owner, this);
                     var newUpdate = {newResourceValue: newCurrent, maxResourceValue: max};

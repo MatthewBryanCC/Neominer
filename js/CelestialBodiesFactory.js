@@ -40,7 +40,7 @@ class CelestialBody {
         this.Size = size;
         this.Claimable = false;
         this.ClaimValue = 0;
-        this.Claimer = null;
+        this.ClaimerId = null;
         this.Claimed = false;
         this.Collisions = {};
         this.BeingClaimed = false;
@@ -55,22 +55,26 @@ class CelestialBody {
             if(collider.Type == "Mining_Drone") {
                 this.ClaimedByDrone = true;
                 this.DroneId = collider.Id;
-                this.Claimer = gm.GetPlayerById(collider.OwnerId);
+                this.ClaimerId = collider.OwnerId
             } else {
-                this.Claimer = collider;
+                this.ClaimerId = collider.Id;
             }
             gm.ClaimingObjects[this.Id] = this;
             console.log("Clamin!");
         }
-        this.Collisions[collider.Id] = collider;
+        var collisionInfo = {
+            Id: collider.Id,
+            CollisionType: collider.Type
+        }
+        this.Collisions[collider.Id] = collisionInfo;
     }
     EndCollide(gm, collider) {
         console.log("[Celestial Object]: Collision ended. Object type '" + this.Type + "'");
-        if(this.Claimable && this.Claimer == collider) {
+        if(this.Claimable && (this.ClaimerId == collider.Id || this.ClaimerId == collider.OwnerId)) {
             if((this.CaimedByDrone && collider.Type == "Mining_Drone") || !this.ClaimedByDrone) {
                 delete gm.ClaimingObjects[this.Id];
                 this.BeingClaimed = false;
-                this.Claimer = null;
+                this.ClaimerId = null;
                 this.ClaimedByDrone = false;
                 this.ClaimValue = 0;
             }
@@ -89,17 +93,16 @@ class CelestialBody {
         }
         return false;
     }
-    HasFriendlyCollision() {
-        if(this.Owner == null) { return false; }
+    HasFriendlyCollision(gm) {
+        //var owner = gm.GetPlayerById(this.OwnerId);
+        //if(owner == null) { return false; } //Owner dc'ed, ignore.
         for(var id in this.Collisions) {
-            console.log(id);
-            var collider = this.Collisions[id];
-            console.log(collider.Type);
-            if(collider.Type == "Mining_Drone") {
-                var ownerId = collider.OwnerId;
-                if(ownerId == this.Owner.Id) return true;
+            var colliderInfo = this.Collisions[id];
+            if(colliderInfo.CollisionType == "Mining_Drone") {
+                var ownerId = colliderInfo.Id;
+                if(ownerId == this.OwnerId) return true;
             } else {
-                if(collider.Id == this.Owner.Id) return true;
+                if(colliderInfo.Id == this.OwnerId) return true;
             }
             continue;
         }
@@ -107,9 +110,9 @@ class CelestialBody {
     }
     Unclaim() {
         this.ClaimValue = 0;
-        this.Claimer = false;
+        this.ClaimerId = null;
         this.BeingClaimed = false;
-        this.Owner = null;
+        this.OwnerId = null;
     }
 }
 
@@ -123,7 +126,7 @@ class Asteroid extends CelestialBody {
     constructor(id, type, position, size) {
         super(id, type, position, size);
         this.Claimable = true;
-        this.Owner = null;
+        this.OwnerId = null;
         this.AsteroidType = "Metal";
         this.MaxResource = 100;
         this.CurrentResource = 100; 
@@ -133,25 +136,26 @@ class Asteroid extends CelestialBody {
         if(this.ClaimValue >= 1) {
             this.ClaimValue = 1;
             this.Claimed = true;
-            this.Owner = this.Claimer;
+            this.OwnerId = this.ClaimerId;
             delete gm.ClaimingObjects[this.Id];
-            this.Owner.ClaimObject("Asteroid", this, gm);
+            var owner = gm.GetPlayerById(this.OwnerId);
+            owner.ClaimObject("Asteroid", this, gm);
             //Broadcast claim
             var data = {
                 AsteroidId: this.Id,
-                OwnerId: this.Owner.Id
+                OwnerId: this.OwnerId
             };
             gm.Server.BroadcastData("AsteroidClaim", data);
             return true;
         }
         return false;
     }
-    CanBeHarvested() {
-        return (!this.Contested && this.HasFriendlyCollision());
+    CanBeHarvested(gm) {
+        return (!this.Contested && this.HasFriendlyCollision(gm));
     }
 
-    IsBeingHarvested() {
-        return this.HasFriendlyCollision();
+    IsBeingHarvested(gm) {
+        return this.HasFriendlyCollision(gm);
     }
 
     ClaimResources(owner, gm) {

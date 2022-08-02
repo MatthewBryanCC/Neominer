@@ -28,6 +28,7 @@ class Player {
             Left: false,
             Right: false
         };
+        this.Type = "Player";
         this.Speed = 10;
         this.ServerOnly = {
             Drones: {}
